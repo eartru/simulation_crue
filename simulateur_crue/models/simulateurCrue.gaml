@@ -11,15 +11,28 @@ model simulateurCrue
 
 global {
 	int grid_size <- 60;
-	int nb_batiment <- 3;
-	int nb_civil <- 10;
+	int nb_batiment <- 50;
+	int nb_evacuation <- 2;
+	int nb_civil <- 1000;
 	int nb_ville <- 1;
 	int init_sante <- 100;
 	float max_niveau_eau <- 10.0;
+	bool is_river <- false;
+	list<point> batiment_point <- [{25, 90 }, { 40, 78 }, { 21, 86 }, { 41, 64 }, { 10, 82 }, {25, 95 }, { 40, 92 }, { 21, 82 }, { 41, 84 }, { 10, 68 },
+		{25, 50}, { 33, 66 }, { 21, 77 }, { 12, 64 }, { 17, 55 }, {27, 83 }, { 50, 75 }, { 21, 72 }, { 41, 89 }, { 44, 59 },
+		{8, 50}, { 11, 55 }, { 20, 63 }, { 12, 54 }, { 17, 55 }, {7, 83 }, { 15, 62 }, { 21, 53 }, { 16, 59 }, { 13, 61 },
+		{25, 77}, { 33, 76 }, { 42, 87 }, { 46, 90 }, { 49, 82 }, {50, 83 }, { 44, 75 }, { 28, 71 }, { 30, 88 }, { 38, 66 }];
+		
+	file river_shapefile <- file("../includes/RedRiver.shp");
+		
+	list<point> evacuation_point <- [{5, 90 }, { 50, 90 }, {5, 50}, {25, 90}];
+   	
 	init {
 		create batiment number: nb_batiment;
-		create civil number: nb_civil;
-		create ville number: nb_ville;
+		create evacuation_building number: nb_evacuation;
+		create civil number: nb_civil{
+			target <- one_of (evacuation_building) ; 
+		}
 	}
 }
 
@@ -27,33 +40,33 @@ grid plot height: grid_size width: grid_size neighbors: 8{
 	float ville;
 	float niveau_eau;
 	
-	/*rgb color <- rgb(255*(1-niveau_eau/max_niveau_eau), 255*(1-niveau_eau/max_niveau_eau), 255) 
-		update: rgb(255*(1-niveau_eau/max_niveau_eau), 255*(1-niveau_eau/max_niveau_eau), 255);*/
-	
 	init{
-		niveau_eau <- rnd(max_niveau_eau);
-		color <- rgb(255*(1-niveau_eau/max_niveau_eau), 255*(1-niveau_eau/max_niveau_eau), 255);
+	//	niveau_eau <- rnd(max_niveau_eau);
+	//	color <- rgb(255*(1-niveau_eau/max_niveau_eau), 255*(1-niveau_eau/max_niveau_eau), 255);
 	}
 	
 	aspect plotNiveauEau {
-		draw square(1) color: color /*rgb(255*(1-niveau_eau/max_niveau_eau), 255*(1-niveau_eau/max_niveau_eau), 255)*/;
+	//	draw square(1) color: color;
 	}
 }
 
-species ville {
+species evacuation_building {
+	point my_plot;
 	init {
-		location <- {30, 60, 0};
+		my_plot <- one_of(evacuation_point);
+		location <- any_location_in(my_plot);
 	}
-	aspect square {
-		draw square(60) color: #white border: #red;
-	}
+	aspect square{
+		draw square(4) color: #red;
+	}	
 }
 
 species batiment {
-	plot my_plot;
+	point my_plot;
 	init {
-		my_plot <- one_of(ville);
-		location <- my_plot.location;
+		my_plot <- one_of(batiment_point);
+		//location <- my_plot.location;
+		location <- any_location_in(my_plot);
 	}	
 	
 	aspect square{
@@ -61,12 +74,19 @@ species batiment {
 	}	
 }
 
-species humain {
-	plot my_plot;
+species humain skills: [moving]{
+	evacuation_building target;
+	civil other_people;
+	batiment other_batiment;
+	batiment my_plot;
 	init {
-		my_plot <- one_of(plot);
+		my_plot <- one_of(batiment);
 		location <- my_plot.location;
 	}	
+	
+	reflex goto {
+		do goto on:plot target:target speed:0.5;
+	}
 }
 
 species civil parent: humain{
@@ -98,8 +118,7 @@ experiment exp_name type: gui {
 			grid plot lines: #black;
 			species batiment aspect: square;
 			species civil aspect: circle;
-			species ville aspect: square;
+			species evacuation_building aspect: square;
 		}
-
 	}
 }
