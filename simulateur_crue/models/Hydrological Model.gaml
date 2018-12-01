@@ -1,4 +1,10 @@
-/**
+/*
+ *  Author : Estelle
+ * Description : final simulation of a river flooding next to a town that should evacuate on the user interaction (crisis manager)
+ */
+
+/** Inspired by the model of :
+ * 
 * Name: Hydrological Model
 * Author: Patrick Taillandier
 * Description: A model showing how to represent a flooding system with dykes and buildings. It uses 

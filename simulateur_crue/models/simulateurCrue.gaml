@@ -1,7 +1,7 @@
 /**
 * Name: simulateurCrue
 * Author: estelle
-* Description: 
+* Description:  first part of the project -> simulate the evacuation for a town with minimal properties
 * Tags: Tag1, Tag2, TagN
 */
 
