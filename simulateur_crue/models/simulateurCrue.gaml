@@ -7,7 +7,6 @@
 
 model simulateurCrue
 
-/* Insert your model definition here */
 
 global {
 	int grid_size <- 60;
@@ -30,6 +29,7 @@ global {
 	file river_shapefile <- file("../includes/RedRiver.shp");
 		
 	list<point> evacuation_point <- [{5, 95 }, { 50, 95 }, {5, 50}, {25, 95}];
+	
    	
 	init {
 		create batiment number: nb_batiment;
@@ -45,7 +45,7 @@ global {
 		create eau {
 			river rv <- one_of(river);
 			location <- any_location_in(rv);
-		}
+		} 
 	}
 }
 

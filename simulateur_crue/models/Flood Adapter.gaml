@@ -6,7 +6,8 @@
 */
 model flood_adapter
 
-import "flood.gaml"
+import "Hydrological Model.gaml"
+
 experiment "Adapter" type: gui
 {
 	point newSize <- { 0.07, 0.07 };
@@ -23,7 +24,12 @@ experiment "Adapter" type: gui
 	{
 		return list(cell) where (each.grid_value > 8.0);
 	}
-	
+
+	list<buildings> get_buildings
+	{
+		return list(buildings);
+	}
+
 	list<dyke> get_dyke
 	{
 		return list(dyke);
