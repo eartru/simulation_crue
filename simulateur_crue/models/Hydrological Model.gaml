@@ -172,6 +172,7 @@ species evacuation_building parent: batiment {
 	init {
 		my_cell <- one_of(evacuation_point);
 		location <- any_location_in(my_cell);
+		remove my_cell from: evacuation_point;
 	}
 	
 	aspect square{
@@ -224,11 +225,24 @@ species civil parent: humain{
 		do goto on:cell target:target speed:0.1;
 	}
 	
-	reflex baisse_sante when: is_in_water = true {
+	action leave_with_secouriste {
+		do goto on:cell target:target speed:0.01;
+	}
+	
+	reflex baisse_sante /*when: is_in_water = true*/ {
 		sante <- sante -1;
 		if (sante = 0) {
 			nb_morts <- nb_morts +1;
 			do die;
+		}
+	}
+	
+	//Civil call the secouriste to go together in a safe palce
+	reflex call_help {
+		if (sante < 50) {
+			ask secouriste {
+				do do_rescue;
+			}
 		}
 	}
 	
@@ -250,8 +264,16 @@ species secouriste parent: humain{
 		draw circle(20) color: #red;
 	}
 	
-	reflex do_rescue {
-		do goto on:cell target:people_in_danger speed:0.1;
+	action do_rescue{
+		do goto on:cell target:people_in_danger speed:0.01;
+		
+		// Check the distance between the secouriste and the civil
+		if (self distance_to people_in_danger < 36) {
+			ask people_in_danger{
+				//If the secouriste is next to the civil, then go in safe place
+				do leave_with_secouriste;
+			}
+		}
 	}
 }
 
