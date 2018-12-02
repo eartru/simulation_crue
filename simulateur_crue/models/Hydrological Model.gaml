@@ -20,8 +20,8 @@ global {
 	//ours
 	int nb_batiment <- 50;
 	int nb_evacuation <- 3;
-	int nb_civil <- 1;//1000
-	int nb_secouriste <- 1;//50
+	int nb_civil <- 1000;
+	int nb_secouriste <- 50;
 	int nb_rescue_building <- 2;
 	int nb_sensible_building <- 5;
 	int init_sante <- 100;
