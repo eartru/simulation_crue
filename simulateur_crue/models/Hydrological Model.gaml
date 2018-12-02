@@ -159,7 +159,9 @@ species batiment parent: obstacle{
 	init {
 		my_cell <- one_of(batiment_point);
 		location <- any_location_in(my_cell);
-	}	
+		remove my_cell from: batiment_point;
+		write 'This is a message from ' + batiment_point; 
+	}
 	
 	aspect square{
 		draw square(50) color: #black;
