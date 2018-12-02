@@ -18,8 +18,8 @@ model hydro
 
 global {
 	//variables for the gestionnaire de crise
-	int nb_civil <- 10;
-	int nb_secouriste <- 2;	
+	int nb_civil <- 1000;
+	int nb_secouriste <- 50;	
 	bool evacuate <- false;
 	bool evacuate_sensitive_bulding <- false;
 	
