@@ -17,18 +17,22 @@
 model hydro
 
 global {
+	//variables for the gestionnaire de crise
+	int nb_civil <- 10;
+	int nb_secouriste <- 2;	
+	bool evacuate <- false;
+	bool evacuate_sensitive_bulding <- false;
+	
 	//ours
 	int nb_batiment <- 50;
 	int nb_evacuation <- 3;
-	int nb_civil <- 1000;
-	int nb_secouriste <- 50;
 	int nb_rescue_building <- 2;
 	int nb_sensible_building <- 5;
 	int init_sante <- 100;
 	int nb_morts <- 0;
 	float max_niveau_eau <- 10.0;
 	bool is_river <- false;
-	bool evacuate <- false;
+
 	list<point> batiment_point <- [{600, 3600 ,0.1}, { 600, 4000 ,0.1}, { 600, 4400 ,0.1}, { 600, 4800 ,0.1}, { 600, 4000 ,0.1}, {600, 4200 ,0.1}, { 600, 4400 ,0.1}, { 600, 4600 ,0.1}, { 600, 4800 ,0.1}, { 600, 3800,0.1 },
 {700, 3600 ,0.1}, { 700, 4000 ,0.1}, { 700, 4400 ,0.1}, { 700, 4800 ,0.1}, { 700, 4000 ,0.1}, {700, 4200 ,0.1}, { 700, 4400 ,0.1}, { 700, 4600 ,0.1}, { 700, 4800 ,0.1}, { 700, 3800,0.1 },
 {800, 3600 ,0.1}, { 800, 4000 ,0.1}, { 800, 4400 ,0.1}, { 800, 4800 ,0.1}, { 800, 4000 ,0.1}, {800, 4200 ,0.1}, { 800, 4400 ,0.1}, { 800, 4600 ,0.1}, { 800, 4800 ,0.1}, { 800, 3800,0.1 },
@@ -46,6 +50,8 @@ global {
 {2000, 3600 ,0.1}, { 2000, 4000 ,0.1}, { 2000, 4400 ,0.1}, { 2000, 4800 ,0.1}, { 2000, 4000 ,0.1}, {2000, 4200 ,0.1}, { 2000, 4400 ,0.1}, { 2000, 4600 ,0.1}, { 2000, 4800 ,0.1}, { 2000, 3800,0.1 },
 {2100, 3600 ,0.1}, { 2100, 4000 ,0.1}, { 2100, 4400 ,0.1}, { 2100, 4800 ,0.1}, { 2100, 4000 ,0.1}, {2100, 4200 ,0.1}, { 2100, 4400 ,0.1}, { 2100, 4600 ,0.1}, { 2100, 4800 ,0.1}, { 2100, 3800,0.1 }];
 	//problem : multiple building on one point...
+	
+	list<point> sensible_building_point <-[];
 		
    list<point> evacuation_point <- [{500, 3000 ,0.1}, { 500, 5000 , 0.1}, {2200, 5000 , 0.1}];
 	
@@ -180,7 +186,7 @@ species evacuation_building parent: batiment {
 	}	
 }
 
-species sensible_building parent: batiment {
+species sensible_building parent: batiment {	
 	bool is_sensible <- true;
 	
 	aspect square{
@@ -201,7 +207,7 @@ species humain skills: [moving]{
 	batiment my_cell;
 	
 	init {
-		my_cell <- one_of(batiment);
+		my_cell <- one_of(sensible_building);
 		location <- my_cell.location;
 	}	
 }
@@ -209,6 +215,11 @@ species humain skills: [moving]{
 species civil parent: humain{
 	int sante <- init_sante;
 	bool is_in_water <- false;
+	
+	init {
+		my_cell <- one_of(sensible_building);
+		location <- my_cell.location;
+	}
 	
 	//Not working for now
 	//reflex is_drowning when: self.location = eau_species.location {
@@ -229,6 +240,12 @@ species civil parent: humain{
 		do goto on:cell target:target speed:0.01;
 	}
 	
+	reflex leave_with_secouriste_sensitive_bulding when: evacuate_sensitive_bulding = true{	
+		if(my_cell is sensible_building){
+			do call_help;
+		}
+	}
+	
 	reflex baisse_sante /*when: is_in_water = true*/ {
 		sante <- sante -1;
 		if (sante = 0) {
@@ -237,13 +254,17 @@ species civil parent: humain{
 		}
 	}
 	
-	//Civil call the secouriste to go together in a safe palce
 	reflex call_help {
 		if (sante < 50) {
-			ask secouriste {
-				do do_rescue;
-			}
+			do call_help;
 		}
+	}
+	
+	//Civil call the secouriste to go together in a safe palce
+	action call_help {
+		ask secouriste {
+			do do_rescue;
+		}		
 	}
 	
 	aspect circle{
@@ -266,7 +287,6 @@ species secouriste parent: humain{
 	
 	action do_rescue{
 		do goto on:cell target:people_in_danger speed:0.01;
-		
 		// Check the distance between the secouriste and the civil
 		if (self distance_to people_in_danger < 36) {
 			ask people_in_danger{
@@ -446,6 +466,10 @@ experiment main_gui type: gui {
 	user_command "Démarrer l'évacuation" {
 		evacuate <- true;
 	}
+	user_command "Evacuer les bâtiments sensibles" {
+		evacuate_sensitive_bulding <- true;
+	}
+	
    output { 
       display map type: opengl {
          	grid cell triangulation: true;
