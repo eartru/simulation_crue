@@ -217,7 +217,7 @@ species civil parent: humain{
 	bool is_in_water <- false;
 	
 	init {
-		my_cell <- one_of(sensible_building);
+		my_cell <- one_of(batiment);
 		location <- my_cell.location;
 	}
 	
