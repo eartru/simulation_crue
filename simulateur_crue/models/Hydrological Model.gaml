@@ -32,8 +32,7 @@ global {
 	int nb_morts <- 0;
 	float max_niveau_eau <- 10.0;
 	bool is_river <- false;
-
-	bool evacuate <- false;
+	
 	int prior_sensible <- 0;
 	list<point> batiment_point <- [{600, 3600 ,0.1}, { 600, 4000 ,0.1}, { 600, 4400 ,0.1}, { 600, 4800 ,0.1}, { 600, 4000 ,0.1}, {600, 4200 ,0.1}, { 600, 4400 ,0.1}, { 600, 4600 ,0.1}, { 600, 4800 ,0.1}, { 600, 3800,0.1 },
 {700, 3600 ,0.1}, { 700, 4000 ,0.1}, { 700, 4400 ,0.1}, { 700, 4800 ,0.1}, { 700, 4000 ,0.1}, {700, 4200 ,0.1}, { 700, 4400 ,0.1}, { 700, 4600 ,0.1}, { 700, 4800 ,0.1}, { 700, 3800,0.1 },
@@ -219,7 +218,7 @@ species humain skills: [moving]{
 	init {
 		my_cell <- one_of(batiment);
 		location <- my_cell.location;
-		human_speed <- 0.06;
+		human_speed <- 0.01;
 	}	
 }
 
