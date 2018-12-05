@@ -22,7 +22,6 @@ global {
 	int nb_secouriste <- 50;	
 	bool evacuate <- false;
 	bool evacuate_sensitive_bulding <- false;
-	int test <- 50;
 	
 	//ours
 	int nb_batiment <- 50;
@@ -229,7 +228,7 @@ species civil parent: humain{
 	bool is_in_water <- false;
 	
 	init {
-		my_cell <- one_of(sensible_building);
+		my_cell <- one_of(batiment);
 		location <- my_cell.location;
 	}
 	
@@ -501,8 +500,6 @@ experiment main_gui type: gui {
 	user_command "Evacuer les bâtiments sensibles" {
 		evacuate_sensitive_bulding <- true;
 	}
-	
-	parameter "nb people" var:test min: 1 max: 1000;
 	
    output { 
       display map type: opengl {
