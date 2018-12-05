@@ -29,6 +29,7 @@ global {
 	float max_niveau_eau <- 10.0;
 	bool is_river <- false;
 	bool evacuate <- false;
+	int prior_sensible <- 0;
 	list<point> batiment_point <- [{600, 3600 ,0.1}, { 600, 4000 ,0.1}, { 600, 4400 ,0.1}, { 600, 4800 ,0.1}, { 600, 4000 ,0.1}, {600, 4200 ,0.1}, { 600, 4400 ,0.1}, { 600, 4600 ,0.1}, { 600, 4800 ,0.1}, { 600, 3800,0.1 },
 {700, 3600 ,0.1}, { 700, 4000 ,0.1}, { 700, 4400 ,0.1}, { 700, 4800 ,0.1}, { 700, 4000 ,0.1}, {700, 4200 ,0.1}, { 700, 4400 ,0.1}, { 700, 4600 ,0.1}, { 700, 4800 ,0.1}, { 700, 3800,0.1 },
 {800, 3600 ,0.1}, { 800, 4000 ,0.1}, { 800, 4400 ,0.1}, { 800, 4800 ,0.1}, { 800, 4000 ,0.1}, {800, 4200 ,0.1}, { 800, 4400 ,0.1}, { 800, 4600 ,0.1}, { 800, 4800 ,0.1}, { 800, 3800,0.1 },
@@ -57,7 +58,7 @@ global {
    //Data elevation file
    file dem_file <- file("../includes/mnt50.asc");  
    //Diffusion rate
-   float diffusion_rate <- 0.6;
+   float diffusion_rate <- 20.0;
    //Height of the dykes
    float dyke_height <- 15.0;
    //Width of the dyke
@@ -72,7 +73,7 @@ global {
    
    
   
-   float step <- 1°h;
+   float step <- 20°mn;
    
    init {
    	 //Initialization of the cells
@@ -182,9 +183,16 @@ species evacuation_building parent: batiment {
 
 species sensible_building parent: batiment {
 	bool is_sensible <- true;
+	user_command define_as_target action:define_target;
 	
 	aspect square{
 		draw square(70) color: #violet;
+	}
+	
+	action define_target {
+		ask secouriste {
+			do set_target target_sb: myself;
+		}
 	}	
 }
 
@@ -199,10 +207,12 @@ species humain skills: [moving]{
 	evacuation_building target;
 	civil target_people;
 	batiment my_cell;
+	float human_speed;
 	
 	init {
 		my_cell <- one_of(batiment);
 		location <- my_cell.location;
+		human_speed <- 0.06;
 	}	
 }
 
@@ -222,11 +232,11 @@ species civil parent: humain{
 	// reflex goto_other_building
 	
 	reflex goto when: evacuate = true {
-		do goto on:cell target:target speed:0.1;
+		do goto on:cell target:target speed:human_speed;
 	}
 	
 	action leave_with_secouriste {
-		do goto on:cell target:target speed:0.01;
+		do goto on:cell target:target speed:human_speed;
 	}
 	
 	reflex baisse_sante /*when: is_in_water = true*/ {
@@ -254,18 +264,32 @@ species civil parent: humain{
 species secouriste parent: humain{
 	civil people_in_danger;
 	rescue_building rescue_cell;
+	float speed_in_truck;
+	bool target_set;
+	sensible_building sb;
 	
 	init {
 		rescue_cell <- one_of(rescue_building);
 		location <- rescue_cell.location;
+		speed_in_truck <- 0.04;
+		target_set <- false;
 	}	
 
 	aspect circle{
 		draw circle(20) color: #red;
 	}
 	
+	reflex go_to_target when: target_set = true{
+		do goto on:cell target:sb speed:human_speed;
+	}
+	
+	action set_target(sensible_building target_sb){
+		target_set <- true;
+		sb <- target_sb;
+	}
+	
 	action do_rescue{
-		do goto on:cell target:people_in_danger speed:0.01;
+		do goto on:cell target:people_in_danger speed:human_speed;
 		
 		// Check the distance between the secouriste and the civil
 		if (self distance_to people_in_danger < 36) {
@@ -441,8 +465,9 @@ species secouriste parent: humain{
 
 
 experiment main_gui type: gui {
-   parameter "Nombre de civils" var: nb_civil;
+   	parameter "Nombre de civils" var: nb_civil;
 	parameter "Nombre de secouristes" var: nb_secouriste;
+	parameter "% secouristes priorisant batiments sensibles" var: prior_sensible min:0 max:100 slider: true;
 	user_command "Démarrer l'évacuation" {
 		evacuate <- true;
 	}
