@@ -18,14 +18,17 @@ model hydro
 
 global {
 	// Init global variables
+	int nb_civil <- 1000;
+	int nb_secouriste <- 50;	
+	bool evacuate <- false;
+	bool evacuate_sensitive_bulding <- false;
 	int nb_batiment <- 50;
 	int nb_evacuation <- 3;
-	int nb_civil <- 1000;
-	int nb_secouriste <- 50;
 	int nb_rescue_building <- 2;
 	int nb_sensible_building <- 5;
 	int nb_morts <- 0;
-	bool evacuate <- false;
+	float max_niveau_eau <- 10.0;
+	bool is_river <- false;
 	int prior_sensible <- 0;
 	list<point> batiment_point <- [{600, 3600 ,0.1}, { 600, 4000 ,0.1}, { 600, 4400 ,0.1}, { 600, 4800 ,0.1}, { 600, 4000 ,0.1}, {600, 4200 ,0.1}, { 600, 4400 ,0.1}, { 600, 4600 ,0.1}, { 600, 4800 ,0.1}, { 600, 3800,0.1 },
 {700, 3600 ,0.1}, { 700, 4000 ,0.1}, { 700, 4400 ,0.1}, { 700, 4800 ,0.1}, { 700, 4000 ,0.1}, {700, 4200 ,0.1}, { 700, 4400 ,0.1}, { 700, 4600 ,0.1}, { 700, 4800 ,0.1}, { 700, 3800,0.1 },
@@ -43,7 +46,9 @@ global {
 {1900, 3600 ,0.1}, { 1900, 4000 ,0.1}, { 1900, 4400 ,0.1}, { 1900, 4800 ,0.1}, { 1900, 4000 ,0.1}, {1900, 4200 ,0.1}, { 1900, 4400 ,0.1}, { 1900, 4600 ,0.1}, { 1900, 4800 ,0.1}, { 1900, 3800,0.1 },
 {2000, 3600 ,0.1}, { 2000, 4000 ,0.1}, { 2000, 4400 ,0.1}, { 2000, 4800 ,0.1}, { 2000, 4000 ,0.1}, {2000, 4200 ,0.1}, { 2000, 4400 ,0.1}, { 2000, 4600 ,0.1}, { 2000, 4800 ,0.1}, { 2000, 3800,0.1 },
 {2100, 3600 ,0.1}, { 2100, 4000 ,0.1}, { 2100, 4400 ,0.1}, { 2100, 4800 ,0.1}, { 2100, 4000 ,0.1}, {2100, 4200 ,0.1}, { 2100, 4400 ,0.1}, { 2100, 4600 ,0.1}, { 2100, 4800 ,0.1}, { 2100, 3800,0.1 }];
-		
+
+   list<point> sensible_building_point <-[];
+	
    list<point> evacuation_point <- [{500, 3000 ,0.1}, { 500, 5000 , 0.1}, {2200, 5000 , 0.1}];
 	
    bool parallel <- false;
@@ -177,7 +182,7 @@ species evacuation_building parent: batiment {
 	}	
 }
 
-species sensible_building parent: batiment {
+species sensible_building parent: batiment {	
 	bool is_sensible <- true;
 	user_command define_as_target action:define_target;
 	
@@ -221,6 +226,7 @@ species humain skills: [moving]{
 			nb_morts <- nb_morts +1;
 			do die;
 		}
+		human_speed <- 0.01;
 	}	
 }
 
@@ -231,6 +237,11 @@ species civil parent: humain{
 	
 	init {
 		 able_to_evacuate <- flip(0.7)? true: false;
+	}
+	
+	init {
+		my_cell <- one_of(batiment);
+		location <- my_cell.location;
 	}
 	
 	//Not working for now
@@ -252,14 +263,30 @@ species civil parent: humain{
 		do goto on:cell target:target speed:human_speed;
 	}
 	
+	reflex leave_with_secouriste_sensitive_bulding when: evacuate_sensitive_bulding = true{	
+		if(my_cell is sensible_building){
+			do call_help;
+		}
+	}
 	
-	//Civil call the secouriste to go together in a safe palce
+	reflex baisse_sante /*when: is_in_water = true*/ {
+		health <- health -1;
+		if (health = 0) {
+			nb_morts <- nb_morts +1;
+			do die;
+		}
+	}
 	reflex call_help {
 		if (health < 50) {
-			ask secouriste {
-				do do_rescue;
-			}
+			do call_help;
 		}
+	}
+	
+	//Civil call the secouriste to go together in a safe palce
+	action call_help {
+		ask secouriste {
+			do do_rescue;
+		}		
 	}
 	
 	aspect circle{
@@ -464,7 +491,10 @@ species secouriste parent: humain{
          int val_water <- 0;
          val_water <- max([0, min([255, int(255 * (1 - (water_height / 12.0)))])]) ;  
          color <- rgb([val_water, val_water, 255]);
-         grid_value <- water_height + altitude;
+         grid_value <-
+         
+         
+         water_height + altitude;
       }
       //action to compute the destruction of the obstacle
       action update_after_destruction(obstacle the_obstacle){
@@ -479,9 +509,14 @@ experiment main_gui type: gui {
    	parameter "Nombre de civils" var: nb_civil;
 	parameter "Nombre de secouristes" var: nb_secouriste;
 	parameter "% secouristes priorisant batiments sensibles" var: prior_sensible min:0 max:100 slider: true;
+  
 	user_command "Démarrer l'évacuation" {
 		evacuate <- true;
 	}
+	user_command "Evacuer les bâtiments sensibles" {
+		evacuate_sensitive_bulding <- true;
+	}
+	
    output { 
       display map type: opengl {
          	grid cell triangulation: true;
