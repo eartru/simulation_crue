@@ -17,17 +17,14 @@
 model hydro
 
 global {
-	//ours
+	// Init global variables
 	int nb_batiment <- 50;
 	int nb_evacuation <- 3;
 	int nb_civil <- 1000;
 	int nb_secouriste <- 50;
 	int nb_rescue_building <- 2;
 	int nb_sensible_building <- 5;
-	int init_sante <- 100;
 	int nb_morts <- 0;
-	float max_niveau_eau <- 10.0;
-	bool is_river <- false;
 	bool evacuate <- false;
 	int prior_sensible <- 0;
 	list<point> batiment_point <- [{600, 3600 ,0.1}, { 600, 4000 ,0.1}, { 600, 4400 ,0.1}, { 600, 4800 ,0.1}, { 600, 4000 ,0.1}, {600, 4200 ,0.1}, { 600, 4400 ,0.1}, { 600, 4600 ,0.1}, { 600, 4800 ,0.1}, { 600, 3800,0.1 },
@@ -46,11 +43,10 @@ global {
 {1900, 3600 ,0.1}, { 1900, 4000 ,0.1}, { 1900, 4400 ,0.1}, { 1900, 4800 ,0.1}, { 1900, 4000 ,0.1}, {1900, 4200 ,0.1}, { 1900, 4400 ,0.1}, { 1900, 4600 ,0.1}, { 1900, 4800 ,0.1}, { 1900, 3800,0.1 },
 {2000, 3600 ,0.1}, { 2000, 4000 ,0.1}, { 2000, 4400 ,0.1}, { 2000, 4800 ,0.1}, { 2000, 4000 ,0.1}, {2000, 4200 ,0.1}, { 2000, 4400 ,0.1}, { 2000, 4600 ,0.1}, { 2000, 4800 ,0.1}, { 2000, 3800,0.1 },
 {2100, 3600 ,0.1}, { 2100, 4000 ,0.1}, { 2100, 4400 ,0.1}, { 2100, 4800 ,0.1}, { 2100, 4000 ,0.1}, {2100, 4200 ,0.1}, { 2100, 4400 ,0.1}, { 2100, 4600 ,0.1}, { 2100, 4800 ,0.1}, { 2100, 3800,0.1 }];
-	//problem : multiple building on one point...
 		
    list<point> evacuation_point <- [{500, 3000 ,0.1}, { 500, 5000 , 0.1}, {2200, 5000 , 0.1}];
 	
-   bool parallel <- true;
+   bool parallel <- false;
    //Shapefile for the river
    file river_shapefile <- file("../includes/RedRiver.shp");
    //Shapefile for the dykes
@@ -92,15 +88,15 @@ global {
          do update_color;
       }
       create batiment number: nb_batiment;
-		create evacuation_building number: nb_evacuation;
-		create sensible_building number: nb_sensible_building;
-		create rescue_building number: nb_rescue_building;
-		create civil number: nb_civil{
-			target <-  one_of (evacuation_building);
-		}
-		create secouriste number: nb_secouriste{
-			people_in_danger <- one_of(civil) ; 
-		}
+      create evacuation_building number: nb_evacuation;
+	  create sensible_building number: nb_sensible_building;
+	  create rescue_building number: nb_rescue_building;
+      create civil number: nb_civil{
+		  target <-  one_of (evacuation_building);
+	  }
+	  create secouriste number: nb_secouriste{
+		  people_in_danger <- one_of(civil) ; 
+	  }
    }
    //Action to initialize the altitude value of the cell according to the dem file
    action init_cells {
@@ -204,21 +200,38 @@ species rescue_building parent: batiment {
 
 
 species humain skills: [moving]{
+	bool is_in_water;
 	evacuation_building target;
-	civil target_people;
+	//civil target_people;
 	batiment my_cell;
 	float human_speed;
+	int health;
 	
 	init {
 		my_cell <- one_of(batiment);
 		location <- my_cell.location;
 		human_speed <- 0.06;
+		health <- 100;
+		is_in_water <- false;
+	}
+	
+	reflex health_loss /*when: is_in_water = true*/ {
+		health <- health -1;
+		if (health = 0) {
+			nb_morts <- nb_morts +1;
+			do die;
+		}
 	}	
 }
 
 species civil parent: humain{
-	int sante <- init_sante;
-	bool is_in_water <- false;
+	// able to evacuate depending on age : if > 70 flip(0.1)? true: false, if < 25 flip(0.7)? true: false  else true  
+	// check veracity of stats  !
+	bool able_to_evacuate;
+	
+	init {
+		 able_to_evacuate <- flip(0.7)? true: false;
+	}
 	
 	//Not working for now
 	//reflex is_drowning when: self.location = eau_species.location {
@@ -231,7 +244,7 @@ species civil parent: humain{
 		
 	// reflex goto_other_building
 	
-	reflex goto when: evacuate = true {
+	reflex goto when: evacuate = true and able_to_evacuate = true {
 		do goto on:cell target:target speed:human_speed;
 	}
 	
@@ -239,17 +252,10 @@ species civil parent: humain{
 		do goto on:cell target:target speed:human_speed;
 	}
 	
-	reflex baisse_sante /*when: is_in_water = true*/ {
-		sante <- sante -1;
-		if (sante = 0) {
-			nb_morts <- nb_morts +1;
-			do die;
-		}
-	}
 	
 	//Civil call the secouriste to go together in a safe palce
 	reflex call_help {
-		if (sante < 50) {
+		if (health < 50) {
 			ask secouriste {
 				do do_rescue;
 			}
@@ -281,6 +287,16 @@ species secouriste parent: humain{
 	
 	reflex go_to_target when: target_set = true{
 		do goto on:cell target:sb speed:human_speed;
+		// When near by building
+		if (self distance_to sb < 36) {
+			// Search for citizen in building
+			if people_in_danger.location = sb.location {
+				ask people_in_danger{
+					// Ask citizen  to follow, then go in safe place
+					do leave_with_secouriste;
+				}	
+			}
+		}
 	}
 	
 	action set_target(sensible_building target_sb){
@@ -353,11 +369,7 @@ species secouriste parent: humain{
          draw shape color: color depth: height*5 border: color;
       }
    }
-   //Species buildings which is derivated from obstacle
-   species buildings parent: obstacle schedules: [] {
-   	 //The building has a height randomly chosed between 2 and 10
-      float height <- 2.0 + rnd(8);
-   }
+   
    //Species dyke which is derivated from obstacle
    species dyke parent: obstacle parallel: parallel {
    	
@@ -389,9 +401,8 @@ species secouriste parent: humain{
       		counter_wp <- 0;
       	}
       }
-      //user command which allows the possibility to destroy the dyke for the user
-      user_command "Destroy dyke" action: break; 
    }
+   
    //Grid cell to discretize space, initialized using the dem file
    grid cell file: dem_file neighbors: 8 frequency: 0  use_regular_agents: false use_individual_shapes: false use_neighbors_cache: false schedules: [] parallel: parallel {
       //Altitude of the cell
@@ -474,7 +485,6 @@ experiment main_gui type: gui {
    output { 
       display map type: opengl {
          	grid cell triangulation: true;
-         	species buildings aspect: geometry refresh: false;
          	species dyke aspect: geometry ;
             species batiment aspect: square;
 			species civil aspect: circle;
