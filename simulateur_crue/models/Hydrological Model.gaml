@@ -30,10 +30,10 @@ global {
 	float max_niveau_eau <- 10.0;
 	bool is_river <- false;
 	int prior_sensible <- 0;
-	list<point> batiment_point <- [{600, 3600 ,0.1}, { 600, 4000 ,0.1}, { 600, 4400 ,0.1}, { 600, 4800 ,0.1}, { 600, 4000 ,0.1}, {600, 4200 ,0.1}, { 600, 4400 ,0.1}, { 600, 4600 ,0.1}, { 600, 4800 ,0.1}, { 600, 3800,0.1 },
-{700, 3600 ,0.1}, { 700, 4000 ,0.1}, { 700, 4400 ,0.1}, { 700, 4800 ,0.1}, { 700, 4000 ,0.1}, {700, 4200 ,0.1}, { 700, 4400 ,0.1}, { 700, 4600 ,0.1}, { 700, 4800 ,0.1}, { 700, 3800,0.1 },
-{800, 3600 ,0.1}, { 800, 4000 ,0.1}, { 800, 4400 ,0.1}, { 800, 4800 ,0.1}, { 800, 4000 ,0.1}, {800, 4200 ,0.1}, { 800, 4400 ,0.1}, { 800, 4600 ,0.1}, { 800, 4800 ,0.1}, { 800, 3800,0.1 },
-{900, 3600 ,0.1}, { 900, 4000 ,0.1}, { 900, 4400 ,0.1}, { 900, 4800 ,0.1}, { 900, 4000 ,0.1}, {900, 4200 ,0.1}, { 900, 4400 ,0.1}, { 900, 4600 ,0.1}, { 900, 4800 ,0.1}, { 900, 3800,0.1 },
+	list<point> batiment_point <- [{625, 3675 ,0.1}, { 625, 4075 ,0.1}, { 625, 4475 ,0.1}, { 625, 4875 ,0.1}, { 625, 4075 ,0.1}, {625, 4275 ,0.1}, { 625, 4475 ,0.1}, { 625, 4675 ,0.1}, { 625, 4875 ,0.1}, { 625, 3875,0.1 },
+{725, 3675 ,0.1}, { 725, 4075 ,0.1}, { 725, 4475 ,0.1}, { 725, 4875 ,0.1}, { 725, 4075 ,0.1}, {725, 4275 ,0.1}, { 725, 4475 ,0.1}, { 725, 4675 ,0.1}, { 725, 4875 ,0.1}, { 725, 3875,0.1 },
+{825, 3675 ,0.1}, { 825, 4075 ,0.1}, { 825, 4475 ,0.1}, { 825, 4875 ,0.1}, { 825, 4075 ,0.1}, {825, 4275 ,0.1}, { 825, 4475 ,0.1}, { 825, 4675 ,0.1}, { 825, 4875 ,0.1}, { 825, 3875,0.1 },
+{925, 3675 ,0.1}, { 925, 4075 ,0.1}, { 925, 4475 ,0.1}, { 925, 4875 ,0.1}, { 925, 4075 ,0.1}, {925, 4275 ,0.1}, { 925, 4475 ,0.1}, { 925, 4675 ,0.1}, { 925, 4875 ,0.1}, { 925, 3875,0.1 },
 {1000, 3600 ,0.1}, { 1000, 4000 ,0.1}, { 1000, 4400 ,0.1}, { 1000, 4800 ,0.1}, { 1000, 4000 ,0.1}, {1000, 4200 ,0.1}, { 1000, 4400 ,0.1}, { 1000, 4600 ,0.1}, { 1000, 4800 ,0.1}, { 1000, 3800,0.1 },
 {1100, 3600 ,0.1}, { 1100, 4000 ,0.1}, { 1100, 4400 ,0.1}, { 1100, 4800 ,0.1}, { 1100, 4000 ,0.1}, {1100, 4200 ,0.1}, { 1100, 4400 ,0.1}, { 1100, 4600 ,0.1}, { 1100, 4800 ,0.1}, { 1100, 3800,0.1 },
 {1200, 3600 ,0.1}, { 1200, 4000 ,0.1}, { 1200, 4400 ,0.1}, { 1200, 4800 ,0.1}, { 1200, 4000 ,0.1}, {1200, 4200 ,0.1}, { 1200, 4400 ,0.1}, { 1200, 4600 ,0.1}, { 1200, 4800 ,0.1}, { 1200, 3800,0.1 },
@@ -255,6 +255,23 @@ species civil parent: humain{
 		
 	// reflex goto_other_building
 	
+	reflex write {
+		cell el <- cell closest_to(self);
+		write "el  : "+el;
+		list<cell> el2 <- river_cells where (each.cell_points != "");
+		//write "same ?: "+ self.location = one_of(river_cells);
+		loop river_cell over: shuffle(river_cells){
+			if (river_cell.cell_points.x = self.location.x and river_cell.cell_points.y = self.location.y){
+				is_in_water <- true;
+			}
+		}
+		
+		//write "river_cells :" +river_cells;
+		/*if (self.location = one_of(river_cells)){
+			write "is in water ?" +self.location = one_of(river_cells);
+		}*/
+	}
+	
 	reflex goto when: evacuate = true and able_to_evacuate = true {
 		do goto on:cell target:target speed:human_speed;
 	}
@@ -269,9 +286,9 @@ species civil parent: humain{
 		}
 	}
 	
-	reflex baisse_sante /*when: is_in_water = true*/ {
-		health <- health -1;
-		if (health = 0) {
+	reflex baisse_sante when: is_in_water = true {
+		sante <- sante -1;
+		if (sante = 0) {
 			nb_morts <- nb_morts +1;
 			do die;
 		}
@@ -449,6 +466,7 @@ species secouriste parent: humain{
       //Height of the obstacles
       float obstacle_height <- 0.0;
       bool already <- false;
+      point cell_points <- location;
       
       //Action to compute the highest obstacle among the obstacles
       float compute_highest_obstacle {
@@ -500,6 +518,10 @@ species secouriste parent: humain{
       action update_after_destruction(obstacle the_obstacle){
          remove the_obstacle from: obstacles;
          obstacle_height <- compute_highest_obstacle();
+      }
+      
+      action get_water_height{
+      	return water_height;
       }
        
    }
