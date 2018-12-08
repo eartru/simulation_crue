@@ -165,7 +165,6 @@ species building parent: obstacle{
 		my_cell <- one_of(building_point);
 		location <- any_location_in(my_cell);
 		remove my_cell from: building_point;
-		write 'This is a message from ' + building_point; 
 	}
 	
 	//Action to represent the break of the dyke
@@ -264,32 +263,17 @@ species citizen parent: human{
 		able_to_evacuate <- flip(0.7)? true: false;
 	}
 	
-	//Not working for now
-	//reflex is_drowning when: self.location = eau_species.location {
-	//	is_in_water <- true;
-	//}
-	
-	//reflex is_safe when: self.location != eau_species.location {
-	//	is_in_water <- false;
-	//}
-		
-	// reflex goto_other_building
-	
-	reflex write {
-		cell el <- cell closest_to(self);
-		write "el  : "+el;
-		list<cell> el2 <- river_cells where (each.cell_points != "");
-		//write "same ?: "+ self.location = one_of(river_cells);
+	//Check if the citizen is in the water
+	reflex check_is_in_water {
 		loop river_cell over: shuffle(river_cells){
+			//Compare citizen's location with all cells in the water
 			if (river_cell.cell_points.x = self.location.x and river_cell.cell_points.y = self.location.y){
 				is_in_water <- true;
+				break;
+			}else{
+				is_in_water <- false;
 			}
 		}
-		
-		//write "river_cells :" +river_cells;
-		/*if (self.location = one_of(river_cells)){
-			write "is in water ?" +self.location = one_of(river_cells);
-		}*/
 	}
 	
 	reflex goto when: evacuate = true and able_to_evacuate = true {
@@ -526,6 +510,8 @@ species rescuer parent: human{
          
          
          water_height + altitude;
+         
+         do update_is_river;
       }
       //action to compute the destruction of the obstacle
       action update_after_destruction(obstacle the_obstacle){
@@ -535,6 +521,19 @@ species rescuer parent: human{
       
       action get_water_height{
       	return water_height;
+      }
+      
+      action update_is_river{
+      	int val_water <- 0;
+      	val_water <- max([0, min([255, int(255 * (1 - (water_height / 12.0)))])]) ;
+      	
+      	if (val_water < 255 ){
+      		is_river <- true;
+      		add self to: river_cells;
+      	}else{
+      		is_river <- false;
+      		remove self from: river_cells;
+      	}
       }
        
    }
