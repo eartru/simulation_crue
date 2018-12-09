@@ -23,7 +23,6 @@ global {
 	bool evacuate <- false;
 	bool evacuate_sensitive_bulding <- false;
 	int nb_building <- 50;
-	//int nb_evacuation <- 3;
 	int nb_rescue_building <- 2;
 	int nb_sensible_building <- 5;
 	int nb_destroy_building <- 0;
@@ -97,8 +96,8 @@ global {
       }
       //create building number: nb_building;
       //create evacuation_building number: nb_evacuation;
-	  create sensible_building number: nb_sensible_building;
-	  create rescue_building number: nb_rescue_building;
+	  //create sensible_building number: nb_sensible_building;
+	  //create rescue_building number: nb_rescue_building;
       create citizen number: nb_citizen{
 		  target <-  one_of (evacuation_building);
 	  }
@@ -131,6 +130,16 @@ global {
       }
       create building number: nb_building;
       ask building parallel: parallel {
+          shape <-  shape + dyke_width;
+            do update_cells;
+      }
+      create sensible_building number: nb_sensible_building;
+      ask sensible_building parallel: parallel {
+          shape <-  shape + dyke_width;
+            do update_cells;
+      }
+	  create rescue_building number: nb_rescue_building;
+	  ask rescue_building parallel: parallel {
           shape <-  shape + dyke_width;
             do update_cells;
       }
@@ -176,7 +185,7 @@ species building parent: obstacle parallel: parallel{
 		remove my_cell from: building_point;
 	}
       
-      //Action to represent the break of the dyke
+      //Action to represent the break of a building
        action break{
        	 nb_destroy_building <- nb_destroy_building + 1;
          write "building destroyed :" + nb_destroy_building;
@@ -185,7 +194,7 @@ species building parent: obstacle parallel: parallel{
          }
          do die;
       }
-      //Action to compute the height of the dyke as the dyke_height without the mean height of the cells it overlaps
+
       action compute_height
        {
       	   height <- dyke_height - mean(cells_concerned collect (each.altitude));
@@ -208,13 +217,43 @@ species building parent: obstacle parallel: parallel{
 	}	
 }
 
-species evacuation_building  {
+species evacuation_building  parent: obstacle parallel: parallel {
+	//The building has a height randomly chosed between 2 and 10
+    float height <- 2.0 + rnd(8);
+	int breaking_threshold <- 16;
+	int counter_wp <- 0;
 	init {
-		//my_cell <- one_of(evacuation_point);
-		//location <- any_location_in(my_cell);
-		//remove my_cell from: evacuation_point;
+		shape <-  shape + dyke_width;
+        do update_cells;
 	}
 	
+	//Action to represent the break of an evacuation
+       action break{
+       	 nb_destroy_building <- nb_destroy_building + 1;
+         write "building destroyed :" + nb_destroy_building;
+         ask cells_concerned  {
+            do update_after_destruction(myself);
+         }
+         do die;
+      }
+  
+      action compute_height
+       {
+      	   height <- dyke_height - mean(cells_concerned collect (each.altitude));
+       }
+      
+      //Reflex to break the dynamic of the water
+      reflex breaking_dynamic {
+      	if (water_pressure = 1.0) {
+      		counter_wp <- counter_wp + 1;
+      		if (counter_wp > breaking_threshold) {
+      			do break;
+      		}
+      	} else {
+      		counter_wp <- 0;
+      	}
+      }
+
 	aspect square{
 		draw square(70) color: #red;
 	}	
@@ -354,10 +393,19 @@ species rescuer parent: human{
 	reflex go_to_target when: target_set = true{
 		targeted_sb <- one_of(sb);
 		do goto on:cell target:flip(prior_sensible / 100)? targeted_sb: people_in_danger speed:human_speed;
-		// When near by building
-		if (self distance_to targeted_sb < 36) {
-			// Search for citizen in building
-			if people_in_danger.location = targeted_sb.location {
+		if not dead(people_in_danger) {
+			if not dead(targeted_sb) {
+				// When near by building
+				if (self distance_to targeted_sb < 36) {
+					// Search for citizen in building
+					if people_in_danger.location = targeted_sb.location {
+						ask people_in_danger{
+							// Ask citizen  to follow, then go in safe place
+							do leave_with_rescuer;
+						}	
+					}
+				}
+			} else { // if people is alive but building is destroyed
 				ask people_in_danger{
 					// Ask citizen  to follow, then go in safe place
 					do leave_with_rescuer;
