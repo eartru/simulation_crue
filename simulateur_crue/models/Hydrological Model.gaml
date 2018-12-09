@@ -23,7 +23,7 @@ global {
 	bool evacuate <- false;
 	bool evacuate_sensitive_bulding <- false;
 	int nb_building <- 50;
-	int nb_evacuation <- 3;
+	//int nb_evacuation <- 3;
 	int nb_rescue_building <- 2;
 	int nb_sensible_building <- 5;
 	int nb_destroy_building <- 0;
@@ -46,9 +46,13 @@ global {
 {2000, 3600 ,0.1}, { 2000, 4000 ,0.1}, { 2000, 4400 ,0.1}, { 2000, 4800 ,0.1}, { 2000, 4000 ,0.1}, {2000, 4200 ,0.1}, { 2000, 4400 ,0.1}, { 2000, 4600 ,0.1}, { 2000, 4800 ,0.1}, { 2000, 3800,0.1 },
 {2100, 3600 ,0.1}, { 2100, 4000 ,0.1}, { 2100, 4400 ,0.1}, { 2100, 4800 ,0.1}, { 2100, 4000 ,0.1}, {2100, 4200 ,0.1}, { 2100, 4400 ,0.1}, { 2100, 4600 ,0.1}, { 2100, 4800 ,0.1}, { 2100, 3800,0.1 }];
 
-   list<point> sensible_building_point <-[];
+   list<sensible_building> list_sensible_building;
 	
-   list<point> evacuation_point <- [{500, 3000 ,0.1}, { 500, 5000 , 0.1}, {2200, 5000 , 0.1}];
+   //list<point> evacuation_point <- [{500, 3000 ,0.1}, { 500, 5000 , 0.1}, {2200, 5000 , 0.1}];
+   user_command "Create evacuation here" {
+      create evacuation_building number: 1 with: [location::#user_location];
+   }
+	
 	
    bool parallel <- false;
    //Shapefile for the river
@@ -91,8 +95,8 @@ global {
          obstacle_height <- compute_highest_obstacle();
          do update_color;
       }
-      create building number: nb_building;
-      create evacuation_building number: nb_evacuation;
+      //create building number: nb_building;
+      //create evacuation_building number: nb_evacuation;
 	  create sensible_building number: nb_sensible_building;
 	  create rescue_building number: nb_rescue_building;
       create citizen number: nb_citizen{
@@ -125,6 +129,11 @@ global {
           shape <-  shape + dyke_width;
             do update_cells;
       }
+      create building number: nb_building;
+      ask building parallel: parallel {
+          shape <-  shape + dyke_width;
+            do update_cells;
+      }
    }
    //Reflex to add water among the water cells
    reflex adding_input_water {
@@ -154,50 +163,57 @@ global {
    }
 }
 
-species building parent: obstacle{
+species building parent: obstacle parallel: parallel{
 	point my_cell;
 	//The building has a height randomly chosed between 2 and 10
     float height <- 2.0 + rnd(8);
     int counter_wp <- 0;
-    int breaking_threshold <- 16;
+    int breaking_threshold <- 10;
       
 	init {
 		my_cell <- one_of(building_point);
 		location <- any_location_in(my_cell);
 		remove my_cell from: building_point;
-		write 'This is a message from ' + building_point; 
+		//write 'This is a message from ' + building_point; 
 	}
-	
-	//Action to represent the break of the dyke
-    action destroy{
+      
+      //Action to represent the break of the dyke
+       action break{
+       	 nb_destroy_building <- nb_destroy_building + 1;
+         write "building destroyed :" + nb_destroy_building;
          ask cells_concerned  {
             do update_after_destruction(myself);
          }
          do die;
-     }
+      }
+      //Action to compute the height of the dyke as the dyke_height without the mean height of the cells it overlaps
+      action compute_height
+       {
+      	   height <- dyke_height - mean(cells_concerned collect (each.altitude));
+       }
       
-     //Reflex to break the dynamic of the water
-     reflex breaking_dynamic {
-     	if (water_pressure = 1.0) {
+      //Reflex to break the dynamic of the water
+      reflex breaking_dynamic {
+      	if (water_pressure = 1.0) {
       		counter_wp <- counter_wp + 1;
       		if (counter_wp > breaking_threshold) {
-      			do destroy;
+      			do break;
       		}
       	} else {
       		counter_wp <- 0;
       	}
-    }
+      }
 
 	aspect square{
 		draw square(50) color: #black;
 	}	
 }
 
-species evacuation_building parent: building {
+species evacuation_building  {
 	init {
-		my_cell <- one_of(evacuation_point);
-		location <- any_location_in(my_cell);
-		remove my_cell from: evacuation_point;
+		//my_cell <- one_of(evacuation_point);
+		//location <- any_location_in(my_cell);
+		//remove my_cell from: evacuation_point;
 	}
 	
 	aspect square{
@@ -208,6 +224,8 @@ species evacuation_building parent: building {
 species sensible_building parent: building {	
 	bool is_sensible <- true;
 	user_command define_as_target action:define_target;
+	int counter_wp <- 0;
+    int breaking_threshold <- 14;
 	
 	aspect square{
 		draw square(70) color: #violet;
@@ -221,6 +239,8 @@ species sensible_building parent: building {
 }
 
 species rescue_building parent: building {
+	int counter_wp <- 0;
+    int breaking_threshold <- 14;
 	aspect square{
 		draw square(70) color: #green;
 	}	
@@ -251,6 +271,10 @@ species human skills: [moving]{
 		}
 		human_speed <- 0.01;
 	}	
+	
+	reflex search_evacuation {
+		target <- one_of(evacuation_building);
+	}
 }
 
 species citizen parent: human{
@@ -277,7 +301,7 @@ species citizen parent: human{
 	
 	reflex write {
 		cell el <- cell closest_to(self);
-		write "el  : "+el;
+		//write "el  : "+el;
 		list<cell> el2 <- river_cells where (each.cell_points != "");
 		//write "same ?: "+ self.location = one_of(river_cells);
 		loop river_cell over: shuffle(river_cells){
@@ -329,7 +353,8 @@ species rescuer parent: human{
 	rescue_building rescue_cell;
 	float speed_in_truck;
 	bool target_set;
-	sensible_building sb;
+	sensible_building targeted_sb;
+	list<sensible_building> sb;
 	
 	init {
 		rescue_cell <- one_of(rescue_building);
@@ -343,11 +368,12 @@ species rescuer parent: human{
 	}
 	
 	reflex go_to_target when: target_set = true{
-		do goto on:cell target:sb speed:human_speed;
+		targeted_sb <- one_of(sb);
+		do goto on:cell target:flip(prior_sensible / 100)? targeted_sb: people_in_danger speed:human_speed;
 		// When near by building
-		if (self distance_to sb < 36) {
+		if (self distance_to targeted_sb < 36) {
 			// Search for citizen in building
-			if people_in_danger.location = sb.location {
+			if people_in_danger.location = targeted_sb.location {
 				ask people_in_danger{
 					// Ask citizen  to follow, then go in safe place
 					do leave_with_rescuer;
@@ -358,7 +384,8 @@ species rescuer parent: human{
 	
 	action set_target(sensible_building target_sb){
 		target_set <- true;
-		sb <- target_sb;
+		list_sensible_building <+ target_sb;
+		sb <- list_sensible_building;
 	}
 	
 	action do_rescue{
