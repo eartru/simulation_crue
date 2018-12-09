@@ -102,7 +102,8 @@ global {
 		  target <-  one_of (evacuation_building);
 	  }
 	  create rescuer number: nb_rescuer{
-		  people_in_danger <- one_of(citizen) ; 
+		  people_in_danger <- one_of(citizen) ;
+		  people_in_danger.stayed <- false; 
 	  }
    }
    //Action to initialize the altitude value of the cell according to the dem file
@@ -134,15 +135,15 @@ global {
             do update_cells;
       }
       create sensible_building number: nb_sensible_building;
-      ask sensible_building parallel: parallel {
-          shape <-  shape + dyke_width;
-            do update_cells;
-      }
+	  ask sensible_building parallel: parallel {
+	       shape <-  shape + dyke_width;
+	       do update_cells;
+	  }
 	  create rescue_building number: nb_rescue_building;
 	  ask rescue_building parallel: parallel {
-          shape <-  shape + dyke_width;
-            do update_cells;
-      }
+		   shape <-  shape + dyke_width;
+		   do update_cells;
+	  }
    }
    //Reflex to add water among the water cells
    reflex adding_input_water {
@@ -219,41 +220,42 @@ species building parent: obstacle parallel: parallel{
 
 species evacuation_building  parent: obstacle parallel: parallel {
 	//The building has a height randomly chosed between 2 and 10
-    float height <- 2.0 + rnd(8);
+	float height <- 2.0 + rnd(8);
 	int breaking_threshold <- 16;
 	int counter_wp <- 0;
+	
 	init {
 		shape <-  shape + dyke_width;
-        do update_cells;
+	    do update_cells;
 	}
 	
 	//Action to represent the break of an evacuation
-       action break{
-       	 nb_destroy_building <- nb_destroy_building + 1;
-         write "building destroyed :" + nb_destroy_building;
-         ask cells_concerned  {
-            do update_after_destruction(myself);
-         }
-         do die;
-      }
-  
-      action compute_height
-       {
-      	   height <- dyke_height - mean(cells_concerned collect (each.altitude));
-       }
-      
-      //Reflex to break the dynamic of the water
-      reflex breaking_dynamic {
-      	if (water_pressure = 1.0) {
-      		counter_wp <- counter_wp + 1;
-      		if (counter_wp > breaking_threshold) {
-      			do break;
-      		}
-      	} else {
-      		counter_wp <- 0;
-      	}
-      }
-
+	action break{
+	   	 nb_destroy_building <- nb_destroy_building + 1;
+	     write "building destroyed :" + nb_destroy_building;
+	     ask cells_concerned  {
+	         do update_after_destruction(myself);
+	     }
+	    do die;
+	 }
+	 
+	 action compute_height
+	 {
+		 height <- dyke_height - mean(cells_concerned collect (each.altitude));
+	 }
+	 	      
+	//Reflex to break the dynamic of the water
+	reflex breaking_dynamic {
+	if (water_pressure = 1.0) {
+		counter_wp <- counter_wp + 1;
+	 		if (counter_wp > breaking_threshold) {
+	   			do break;
+	  		}
+	   	} else {
+	   		counter_wp <- 0;
+	   	}
+	}
+	
 	aspect square{
 		draw square(70) color: #red;
 	}	
@@ -283,7 +285,6 @@ species rescue_building parent: building {
 		draw square(70) color: #green;
 	}	
 }	
-
 
 species human skills: [moving]{
 	bool is_in_water;
@@ -316,14 +317,59 @@ species human skills: [moving]{
 }
 
 species citizen parent: human{
-	// able to evacuate depending on age : if > 70 flip(0.1)? true: false, if < 25 flip(0.7)? true: false  else true  
-	// check veracity of stats  !
+	int age;
+	string gender;
+	// between 0 and 100%
+	int panic_rate;
+	// between 1 and 5
+	int level_prevention;
+	int group_id;
 	bool able_to_evacuate;
+	// people with risk_taking true are more likely to die
+	bool risk_taking;
+	point initial_location;
+	bool stayed;
 
 	init {
+		stayed <- false;
 		my_cell <- one_of(building);
 		location <- my_cell.location;
-		able_to_evacuate <- flip(0.7)? true: false;
+		initial_location <- location;
+		gender <- flip(0.5)? "Femme": "Homme";
+		// age random depending on the real age pyramidal
+		age <- flip(0.7)? rnd(0, 49): rnd(50, 99);
+		panic_rate <- flip(0.5)? 40: 70;
+		level_prevention <- flip(0.6)? 4: 2;
+		// able to evacuate depending on age : older and very young people generally can't evacuate due to reduced mobility
+		if age > 70 {
+			able_to_evacuate <- flip(0.2)? true: false;
+		} else if age < 18 {
+			able_to_evacuate <- flip(0.2)? true: false;
+		} else {
+			able_to_evacuate <- flip(0.8)? true: false;
+		}
+		// risk_taking depending on age : cf stat in report
+		if gender = "Femme" {
+			if age >= 59 {
+				risk_taking <- flip(0.138)? true: false;	
+			} else if age <= 59 and age >= 30 {
+				risk_taking <- flip(0.09)? true: false;	
+			} else if age <= 29 and age >= 20 {
+				risk_taking <- flip(0.158)? true: false;
+			} else {
+				risk_taking <- flip(0.0745)? true: false;
+			}
+		} if gender = "Homme" {
+			if age >= 70 {
+				risk_taking <- flip(0.0655)? true: false;	
+			} else if age <= 69 and age >= 30 {
+				risk_taking <- flip(0.1385)? true: false;	
+			} else if age <= 29 and age >= 20 {
+				risk_taking <- flip(0.186)? true: false;
+			} else {
+				risk_taking <- flip(0.0625)? true: false;
+			}
+		}
 	}
 	
 	//Check if the citizen is in the water
@@ -339,7 +385,21 @@ species citizen parent: human{
 		}
 	}
 	
-	reflex goto when: evacuate = true and able_to_evacuate = true {
+	reflex take_risk when: evacuate = true and risk_taking = true {
+		do goto on:cell target:one_of(building) speed:human_speed;
+	}
+	// able_to_evacuate as able_to_moove
+	reflex mooving when: evacuate = false and able_to_evacuate = true {
+		 //do goto on:cell target: flip(0.5)? one_of(building): initial_location speed:human_speed;
+		 do goto on:cell target: one_of(building) speed:human_speed;
+	}
+	
+	reflex stay when: evacuate = true and risk_taking = true {
+		//do goto on:cell target:initial_location; 
+		stayed <- true;
+	}
+	
+	reflex goto when: evacuate = true and able_to_evacuate = true and risk_taking = false{
 		do goto on:cell target:target speed:human_speed;
 	}
 	
@@ -373,6 +433,7 @@ species citizen parent: human{
 
 species rescuer parent: human{
 	citizen people_in_danger;
+	citizen people_to_help;
 	rescue_building rescue_cell;
 	float speed_in_truck;
 	bool target_set;
@@ -392,10 +453,15 @@ species rescuer parent: human{
 	
 	reflex go_to_target when: target_set = true{
 		targeted_sb <- one_of(sb);
+		// define people to help with people who choose to stay
+		// java error when enabled...
+		//if people_in_danger.stayed = true {
+		//	people_to_help <- people_in_danger;
+		//}
 		do goto on:cell target:flip(prior_sensible / 100)? targeted_sb: people_in_danger speed:human_speed;
+		// When near by building
 		if not dead(people_in_danger) {
 			if not dead(targeted_sb) {
-				// When near by building
 				if (self distance_to targeted_sb < 36) {
 					// Search for citizen in building
 					if people_in_danger.location = targeted_sb.location {
@@ -405,7 +471,8 @@ species rescuer parent: human{
 						}	
 					}
 				}
-			} else { // if people is alive but building is destroyed
+			} else { 
+				// if people is alive but building is destroyed
 				ask people_in_danger{
 					// Ask citizen  to follow, then go in safe place
 					do leave_with_rescuer;
@@ -532,7 +599,8 @@ species rescuer parent: human{
       //Boolean to know if it is a drain cell
       bool is_drain <- false;
       //Boolean to know if it is a river cell
-      bool is_river <- false;
+
+bool is_river <- false;
       //List of all the obstacles overlapping the cell
       list<obstacle> obstacles;
       //Height of the obstacles
@@ -581,11 +649,7 @@ species rescuer parent: human{
          int val_water <- 0;
          val_water <- max([0, min([255, int(255 * (1 - (water_height / 12.0)))])]) ;  
          color <- rgb([val_water, val_water, 255]);
-         grid_value <-
-         
-         
-         water_height + altitude;
-         
+         grid_value <- water_height + altitude;
          do update_is_river;
       }
       //action to compute the destruction of the obstacle
@@ -599,18 +663,17 @@ species rescuer parent: human{
       }
       
       action update_is_river{
-      	int val_water <- 0;
-      	val_water <- max([0, min([255, int(255 * (1 - (water_height / 12.0)))])]) ;
-      	
-      	if (val_water < 255 ){
-      		is_river <- true;
-      		add self to: river_cells;
-      	}else{
-      		is_river <- false;
-      		remove self from: river_cells;
-      	}
-      }
-       
+	      	int val_water <- 0;
+	      	val_water <- max([0, min([255, int(255 * (1 - (water_height / 12.0)))])]) ;
+	      	
+	      	if (val_water < 255 ){
+	      		is_river <- true;
+	     		add self to: river_cells;
+	      	}else{
+	      		is_river <- false;
+	     		remove self from: river_cells;
+	      	}
+		}	
    }
 
 
@@ -621,6 +684,7 @@ experiment main_gui type: gui {
   
 	user_command "Démarrer l'évacuation" {
 		evacuate <- true;
+		write "L'alerte est donnée.";
 	}
 	user_command "Evacuer les batiments sensibles" {
 		evacuate_sensitive_bulding <- true;
