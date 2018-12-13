@@ -76,7 +76,7 @@ global {
    
    
   
-   float step <- 20°mn;
+   float step <- 5°mn;
    
    init {
    	 //Initialization of the cells
@@ -260,17 +260,31 @@ species human skills: [moving]{
 	building my_cell;
 	float human_speed;
 	int health;
+	cell my_cell_grid;
 	
 	init {
 		my_cell <- one_of(building);
 		location <- my_cell.location;
-		human_speed <- 0.06;
+		//my_cell_grid <- one_of(cell);
+		human_speed <- 0.04;
 		health <- 100;
 		is_in_water <- false;
 	}
 	
+	reflex check_water {	
+		loop riverr over: river_cells {
+			if(riverr.location partially_overlaps self.location) {		
+					
+				write "is in water";			
+				is_in_water <- true;		
+				
+			}		
+		}	
+	}
+	
 	reflex health_loss when: is_in_water = true {
-		health <- health -1;
+		write "loose health";
+		health <- health -10;
 		if (health = 0) {
 			nb_death <- nb_death +1;
 			do die;
@@ -398,7 +412,7 @@ species rescuer parent: human{
 	init {
 		rescue_cell <- one_of(rescue_building);
 		location <- rescue_cell.location;
-		speed_in_truck <- 0.04;
+		speed_in_truck <- 0.06;
 		target_set <- false;
 	}	
 
@@ -642,5 +656,13 @@ experiment main_gui type: gui {
 			species sensible_building aspect: square;
 			species evacuation_building aspect: square;
       }
+      monitor "Nb of death" value: nb_death;		
+      monitor "Nb of destroyed building" value: nb_destroy_building;		
+      monitor "Duration in minutes" value: cycle * 5 ;		
+		display chart {		
+			chart "Evolution of the number of death" type: series  {		
+				data "nb of death" value: nb_death color: #red;		
+			}		
+		}
    }
 }
