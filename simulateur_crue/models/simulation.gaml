@@ -29,6 +29,7 @@ global {
 	int nb_death <- 0;
 	int prior_sensible <- 0;
 	int resistance_building <- 8;
+	int nb_people_evacuated <- 0;
 	list<point> building_point <- [{1325, 3675 ,0.1}, { 1325, 4075 ,0.1}, { 1325, 4475 ,0.1}, { 1325, 4875 ,0.1}, { 1325, 4075 ,0.1}, {1325, 4275 ,0.1}, { 1325, 4475 ,0.1}, { 1325, 4675 ,0.1}, { 1325, 4875 ,0.1}, { 1325, 3875,0.1 },
 {1425, 3675 ,0.1}, { 1425, 4075 ,0.1}, { 1425, 4475 ,0.1}, { 1425, 4875 ,0.1}, { 1425, 4075 ,0.1}, {1425, 4275 ,0.1}, { 1425, 4475 ,0.1}, { 1425, 4675 ,0.1}, { 1425, 4875 ,0.1}, { 1425, 3875,0.1 },
 {1525, 3675 ,0.1}, { 1525, 4075 ,0.1}, { 1525, 4475 ,0.1}, { 1525, 4875 ,0.1}, { 1525, 4075 ,0.1}, {1525, 4275 ,0.1}, { 1525, 4475 ,0.1}, { 1525, 4675 ,0.1}, { 1525, 4875 ,0.1}, { 1525, 3875,0.1 },
@@ -260,26 +261,32 @@ species human skills: [moving]{
 	building my_cell;
 	float human_speed;
 	int health;
-	cell my_cell_grid;
+	list<cell> my_river_cells;
+	list<cell> is_river_cells;
 	
 	init {
 		my_cell <- one_of(building);
 		location <- my_cell.location;
 		//my_cell_grid <- one_of(cell);
-		human_speed <- 0.04;
+		human_speed <- 0.12;
 		health <- 100;
 		is_in_water <- false;
 	}
 	
 	reflex check_water {	
-		loop riverr over: river_cells {
-			if(riverr.location partially_overlaps self.location) {		
-					
+		loop my_river_cell over: my_river_cells 
+		{
+			if (my_river_cell.is_river) {
+				write "is river";
+				is_river_cells <+ my_river_cell;
+			}
+		}
+		loop is_river_cell over: is_river_cells {
+			if (self distance_to is_river_cell < 10) {
 				write "is in water";			
 				is_in_water <- true;		
-				
-			}		
-		}	
+			}
+		}
 	}
 	
 	reflex health_loss when: is_in_water = true {
@@ -370,10 +377,14 @@ species citizen parent: human{
 	
 	reflex goto when: evacuate = true and able_to_evacuate = true and risk_taking = false{
 		do goto on:cell target:target speed:human_speed;
+		if (self distance_to target < 20) {
+			nb_people_evacuated <- nb_people_evacuated +1;
+			do die;
+		}
 	}
 	
 	action leave_with_rescuer {
-		do goto on:cell target:target speed:human_speed;
+		do goto on:cell target:target speed:0.15;
 	}
 	
 	reflex leave_with_rescuer_sensitive_bulding when: evacuate_sensitive_bulding = true{	
@@ -412,7 +423,7 @@ species rescuer parent: human{
 	init {
 		rescue_cell <- one_of(rescue_building);
 		location <- rescue_cell.location;
-		speed_in_truck <- 0.06;
+		speed_in_truck <- 0.15;
 		target_set <- false;
 	}	
 
@@ -643,6 +654,7 @@ experiment main_gui type: gui {
 	}
 	user_command "Evacuer les batiments sensibles" {
 		evacuate_sensitive_bulding <- true;
+		write "Evacuation des batiments sensibles";
 	}
 	
    output { 
@@ -658,6 +670,7 @@ experiment main_gui type: gui {
       }
       monitor "Nb of death" value: nb_death;		
       monitor "Nb of destroyed building" value: nb_destroy_building;		
+      monitor "Nb of people evacuated" value: nb_people_evacuated ;		
       monitor "Duration in minutes" value: cycle * 5 ;		
 		display chart {		
 			chart "Evolution of the number of death" type: series  {		
