@@ -28,6 +28,7 @@ global {
 	int nb_destroy_building <- 0;
 	int nb_death <- 0;
 	int prior_sensible <- 0;
+	int resistance_building <- 3;
 	list<point> building_point <- [{825, 3675 ,0.1}, { 825, 4075 ,0.1}, { 825, 4475 ,0.1}, { 825, 4875 ,0.1}, { 825, 4075 ,0.1}, {825, 4275 ,0.1}, { 825, 4475 ,0.1}, { 825, 4675 ,0.1}, { 825, 4875 ,0.1}, { 825, 3875,0.1 },
 {925, 3675 ,0.1}, { 925, 4075 ,0.1}, { 925, 4475 ,0.1}, { 925, 4875 ,0.1}, { 925, 4075 ,0.1}, {925, 4275 ,0.1}, { 925, 4475 ,0.1}, { 925, 4675 ,0.1}, { 925, 4875 ,0.1}, { 925, 3875,0.1 },
 {1025, 3675 ,0.1}, { 1025, 4075 ,0.1}, { 1025, 4475 ,0.1}, { 1025, 4875 ,0.1}, { 1025, 4075 ,0.1}, {1025, 4275 ,0.1}, { 1025, 4475 ,0.1}, { 1025, 4675 ,0.1}, { 1025, 4875 ,0.1}, { 1025, 3875,0.1 },
@@ -173,13 +174,25 @@ species building parent: obstacle parallel: parallel{
 	//The building has a height randomly chosed between 2 and 10
     float height <- 2.0 + rnd(8);
     int counter_wp <- 0;
-    int breaking_threshold <- 10;
+    //int resistance <- resistance_building;
       
 	init {
 		my_cell <- one_of(building_point);
 		location <- any_location_in(my_cell);
 		remove my_cell from: building_point;
 	}
+	
+	//Building more and more destroy if is in water
+    reflex breaking_dynamic {
+    	if (water_pressure = 1.0) {
+      		counter_wp <- counter_wp + 1;
+      		if (counter_wp > resistance_building) {
+      			do break;
+      		}
+      	} else {
+      		counter_wp <- 0;
+      	}
+    }	
       
       //Action to represent the break of the building
        action break{
@@ -195,18 +208,6 @@ species building parent: obstacle parallel: parallel{
        {
       	   height <- dyke_height - mean(cells_concerned collect (each.altitude));
        }
-      
-      //Reflex to break the dynamic of the water
-      reflex breaking_dynamic {
-      	if (water_pressure = 1.0) {
-      		counter_wp <- counter_wp + 1;
-      		if (counter_wp > breaking_threshold) {
-      			do break;
-      		}
-      	} else {
-      		counter_wp <- 0;
-      	}
-      }
 
 	aspect square{
 		draw square(50) color: #black;
@@ -221,34 +222,7 @@ species evacuation_building parent: obstacle parallel: parallel {
 	init {
 		shape <-  shape + dyke_width;
         do update_cells;
-	}
-	
-	//Action to represent the break of an evacuation
-       action break{
-       	 nb_destroy_building <- nb_destroy_building + 1;
-         write "building destroyed :" + nb_destroy_building;
-         ask cells_concerned  {
-            do update_after_destruction(myself);
-         }
-         do die;
-      }
-  
-      action compute_height
-       {
-      	   height <- dyke_height - mean(cells_concerned collect (each.altitude));
-       }
-      
-      //Reflex to break the dynamic of the water
-      reflex breaking_dynamic {
-      	if (water_pressure = 1.0) {
-      		counter_wp <- counter_wp + 1;
-      		if (counter_wp > breaking_threshold) {
-      			do break;
-      		}
-      	} else {
-      		counter_wp <- 0;
-      	}
-      }
+	} 
 
 	aspect square{
 		draw square(70) color: #red;
@@ -259,7 +233,6 @@ species sensible_building parent: building {
 	bool is_sensible <- true;
 	user_command define_as_target action:define_target;
 	int counter_wp <- 0;
-    int breaking_threshold <- 14;
 	
 	aspect square{
 		draw square(70) color: #violet;
@@ -269,7 +242,7 @@ species sensible_building parent: building {
 		ask rescuer {
 			do set_target target_sb: myself;
 		}
-	}	
+	}
 }
 
 species rescue_building parent: building {
@@ -277,7 +250,7 @@ species rescue_building parent: building {
     int breaking_threshold <- 14;
 	aspect square{
 		draw square(70) color: #green;
-	}	
+	}
 }	
 
 
@@ -649,6 +622,7 @@ experiment main_gui type: gui {
    	parameter "Nombre de civils" var: nb_citizen;
 	parameter "Nombre de secouristes" var: nb_rescuer;
 	parameter "% secouriste priorisant batiments sensibles" var: prior_sensible min:0 max:100 slider: true;
+	parameter "Résistance des bâtiments" var: resistance_building;
   
 	user_command "Démarrer l'évacuation" {
 		evacuate <- true;
