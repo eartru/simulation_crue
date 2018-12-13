@@ -174,7 +174,6 @@ species building parent: obstacle parallel: parallel{
 	//The building has a height randomly chosed between 2 and 10
     float height <- 2.0 + rnd(8);
     int counter_wp <- 0;
-    //int resistance <- resistance_building;
       
 	init {
 		my_cell <- one_of(building_point);
