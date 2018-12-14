@@ -374,7 +374,7 @@ species citizen parent: human{
 	
 	//Check if the citizen is in the water
 	reflex check_is_in_water {
-		loop river_cell over: shuffle(river_cells){
+		loop river_cell over: shuffle(river_cells) {
 			//Compare citizen's location with all cells in the water
 			if (river_cell.cell_points.x = self.location.x and river_cell.cell_points.y = self.location.y){
 				is_in_water <- true;
@@ -650,7 +650,7 @@ bool is_river <- false;
          val_water <- max([0, min([255, int(255 * (1 - (water_height / 12.0)))])]) ;  
          color <- rgb([val_water, val_water, 255]);
          grid_value <- water_height + altitude;
-         do update_is_river;
+         //do update_is_river;
       }
       //action to compute the destruction of the obstacle
       action update_after_destruction(obstacle the_obstacle){
@@ -662,7 +662,7 @@ bool is_river <- false;
       	return water_height;
       }
       
-      action update_is_river{
+      /*action update_is_river{
 	      	int val_water <- 0;
 	      	val_water <- max([0, min([255, int(255 * (1 - (water_height / 12.0)))])]) ;
 	      	
@@ -673,7 +673,7 @@ bool is_river <- false;
 	      		is_river <- false;
 	     		remove self from: river_cells;
 	      	}
-		}	
+		}	*/
    }
 
 
