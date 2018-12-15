@@ -101,7 +101,6 @@ global {
 	  }
 	  create rescuer number: nb_rescuer{
 		  people_in_danger <- one_of(citizen);
-		  people_in_danger.stayed <- false; 
 	  }
    }
    //Action to initialize the altitude value of the cell according to the dem file
@@ -384,7 +383,7 @@ species citizen parent: human{
 		stayed <- true;
 	}
 	
-	reflex goto when: evacuate = true and able_to_evacuate = true and risk_taking = false{
+	reflex goto_evacuation when: evacuate = true and able_to_evacuate = true and risk_taking = false{
 		do goto on:cell target:target speed:human_speed;
 		if (self distance_to target < 10){
 			nb_evacuated <- nb_evacuated +1;
@@ -451,7 +450,7 @@ species rescuer parent: human{
 		//if people_in_danger.stayed = true {
 		//	people_to_help <- people_in_danger;
 		//}
-		do goto on:cell target:flip(prior_sensible / 100)? targeted_sb: people_in_danger speed:human_speed;
+		do goto on:cell target:flip(prior_sensible / 100)? targeted_sb: people_in_danger speed:speed_in_truck;
 		if not dead(people_in_danger) {
 			if not dead(targeted_sb) {
 				// When near by building
