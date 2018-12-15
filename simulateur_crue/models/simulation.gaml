@@ -280,26 +280,26 @@ species human skills: [moving]{
 	init {
 		my_cell <- one_of(building);
 		location <- my_cell.location;
-		//my_cell_grid <- one_of(cell);
+		my_cell_grid <- cell(location);
 		human_speed <- 0.08;
 		health <- 100;
 		is_in_water <- false;
 	}
 	
+	reflex update_my_cell {
+		my_cell_grid <- cell(location);
+	}
+	
 	reflex check_water {	
-		loop riverr over: river_cells {
-			if(riverr.location partially_overlaps self.location) {		
-					
-				write "is in water";			
-				is_in_water <- true;		
-				
-			}		
+		if (self.my_cell_grid.water_height > 0) {
+			write "is in water";
+			is_in_water <- true;
 		}	
 	}
 	
 	reflex health_loss when: is_in_water = true {
 		write "loose health";
-		health <- health -10;
+		health <- health - 5;
 		if (health = 0) {
 			nb_death <- nb_death +1;
 			do die;
@@ -392,6 +392,7 @@ species citizen parent: human{
 	}
 	
 	action leave_with_rescuer {
+		able_to_evacuate <- true;
 		do goto on:cell target:target speed:human_speed;
 		if (self distance_to target < 10){
 			nb_evacuated <- nb_evacuated +1;
@@ -400,6 +401,7 @@ species citizen parent: human{
 	}
 	
 	reflex leave_with_rescuer_sensitive_bulding when: evacuate_sensitive_bulding = true{	
+		able_to_evacuate <- true;
 		if(my_cell is sensible_building){
 			do call_help;
 		}
@@ -413,6 +415,7 @@ species citizen parent: human{
 	
 	//citizen call the rescuer to go together in a safe place
 	action call_help {
+		able_to_evacuate <- true;
 		ask rescuer {
 			do do_rescue;
 		}		
@@ -470,7 +473,7 @@ species rescuer parent: human{
 				}	
 			}
 		}
-}
+	}
 	
 	action set_target(sensible_building target_sb){
 		target_set <- true;
@@ -660,7 +663,6 @@ experiment main_gui type: gui {
 	parameter "% secouriste priorisant batiments sensibles" var: prior_sensible min:0 max:100 slider: true;
 	parameter "Résistance des bâtiments" var: resistance_building;
 	parameter "Résistance des bâtiments sensibles" var: resistance_sensible_building;
-  
 	user_command "Démarrer l'évacuation" {
 		evacuate <- true;
 		write "L'alerte est donnée.";
