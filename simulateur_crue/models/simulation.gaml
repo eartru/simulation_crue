@@ -182,7 +182,17 @@ species building parent: obstacle parallel: parallel{
 		remove my_cell from: building_point;
 	}
 		
-      
+      //Building more and more destroy if is in water
+    reflex breaking_dynamic {
+    	if (water_pressure = 1.0) {
+      		counter_wp <- counter_wp + 1;
+      		if (counter_wp > resistance_building) {
+      			do break;
+      		}
+      	} else {
+      		counter_wp <- 0;
+      	}
+    }
       //Action to represent the break of the building
        action break{
        	 nb_destroy_building <- nb_destroy_building + 1;
@@ -249,18 +259,6 @@ species sensible_building parent: building {
 species rescue_building parent: building {
 	int counter_wp <- 0;
     int breaking_threshold <- 14;
-	
-	//Building more and more destroy if is in water
-    reflex breaking_dynamic {
-    	if (water_pressure = 1.0) {
-      		counter_wp <- counter_wp + 1;
-      		if (counter_wp > resistance_building) {
-      			do break;
-      		}
-      	} else {
-      		counter_wp <- 0;
-      	}
-    }
 	
 	aspect square{
 		draw square(70) color: #green;
