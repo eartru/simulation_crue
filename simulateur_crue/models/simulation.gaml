@@ -328,7 +328,7 @@ species citizen parent: human{
 
 	init {
 		stayed <- false;
-		my_cell <- one_of(building);
+		my_cell <- one_of(flip(0.2)? sensible_building : building);
 		location <- my_cell.location;
 		initial_location <- location;
 		gender <- flip(0.5)? "Femme": "Homme";
